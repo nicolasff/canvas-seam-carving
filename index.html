@@ -1,82 +1,188 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Canvas seam carving</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<style type="text/css">
+			#c {
+				border: none;
+				margin-top: 5px;
+			}
+			h3, img, canvas {
+				float: left;
+			}
+			h3 {
+				margin-left: 1em;
+			}
+			hr {
+				Visibility: hidden;
+				clear: both;
+			}
+		</style>
+	</head>
+	<body><div>
 
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	  <a href="http://github.com/nicolasff/canvas-seam-carving"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
 
-	<title>nicolasff/canvas-seam-carving @ GitHub</title>
-	
-	<style type="text/css">
-		body {
-  		margin-top: 1.0em;
-  		background-color: #4b5c81;
-		  font-family: "Helvetica,Arial,FreeSans";
-  		color: #ffffff;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-		h1 { font-size: 3.8em; color: #b4a37e; margin-bottom: 3px; }
-		h1 .small { font-size: 0.4em; }
-		h1 a { text-decoration: none }
-		h2 { font-size: 1.5em; color: #b4a37e; }
-    h3 { text-align: center; color: #b4a37e; }
-    a { color: #b4a37e; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-	</style>
-	
-</head>
-
-<body>
-  <a href="http://github.com/nicolasff/canvas-seam-carving"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
-
-  <div id="container">
-
-    <div class="download">
-      <a href="http://github.com/nicolasff/canvas-seam-carving/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/nicolasff/canvas-seam-carving/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
-    </div>
-
-    <h1><a href="http://github.com/nicolasff/canvas-seam-carving">canvas-seam-carving</a>
-      <span class="small">by <a href="http://github.com/nicolasff">nicolasff</a></span></h1>
-
-    <div class="description">
-      Content-aware resizing (“seam carving”) in Javascript + HTML5 <canvas>
-    </div>
-
-    <h2>License</h2>
-<p>Public domain</p>
-<h2>Authors</h2>
-<p>Nicolas Favre-Felix (n.favrefelix@gmail.com)<br/><br/>      </p>
-<h2>Contact</h2>
-<p>Nicolas Favre-Felix (n.favrefelix@gmail.com)<br/>      </p>
+	  <h1>Content-Aware Image Resizing using HTML5 &lt;canvas&gt;</h1>
+	  <p>
+	  This page is a very basic demo of Content-Aware Image Resizing (CAIR) using <a href="http://en.wikipedia.org/wiki/Seam_Carving">seam carving</a>.<br/>
+	  The demo is very slow, so you can <a href="screenshot.png">see a screenshot of the effect with a 50% resize</a> if you don’t want to wait. There is a lot of room for improvement.<br/>
+	  </p>
+	  <p>
+	  The algorithm is the following: 
+	  <ol>
+		  <li>For each pixel from the top row, find the pixel under it that has the closest color (directly under or 1 pixel to the side.)</li>
+		  <li>Add the color distance to a column score.</li>
+		  <li>Repeat until arriving at the bottom row.</li>
+		  <li>Repeat steps 1 &ndash; 3 for each column.</li>
+		  <li>Remove the column with the lowest total score.</li>
+	  </ol>
+	  </p>
+	  <button onclick="perform_magic(this, 20);">Click here to remove 20 columns (warning: very slow)</button><hr/>
+		
+		<img src="image.jpg" id="i" alt="pier"/> <h3>← Original image</h3> <hr />
+		<img src="image.jpg" id="naive" alt="pier, resized by the browser"/> <h3>← &lt;img&gt; tag, resized by the browser</h3> <hr />
+		<canvas id="c"></canvas> <h3>← Context-aware resizing in &lt;canvas&gt; (seam carving)</h3> <hr />
 
 
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/nicolasff/canvas-seam-carving/zipball/master">zip</a> or
-      <a href="http://github.com/nicolasff/canvas-seam-carving/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/nicolasff/canvas-seam-carving</pre>
-    </p>
+<script type="text/javascript">
 
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/nicolasff/canvas-seam-carving">nicolasff/canvas-seam-carving</a>
-    </div>
+	function Carver(canvasId, url) {
+		// create canvas & drawing context
+		this.canvas = document.getElementById(canvasId);
+		this.context = this.canvas.getContext('2d');
 
-  </div>
+		var carver = this;
 
-  
-</body>
+		// load image
+		var img = new Image();
+		img.onload = function() {
+			w = this.width;
+			h = this.height;
+			carver.canvas.width = w;
+			carver.canvas.height = h;
+			carver.context.drawImage(img, 0, 0, w, h);
+
+			carver.w = w;
+			carver.h = h;
+		};
+		img.src = url; // trigger image loading
+
+		this.shrink = function() {
+			// get raw data
+			var raw = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+			// difference between two pixels (color vector distance)
+			var pixel_diff = function(x0,y0, x1,y1) {
+
+				var offset0 = 4 * (carver.canvas.width * y0 + x0);
+				var r0 = raw.data[offset0];
+				var g0 = raw.data[offset0 + 1];
+				var b0 = raw.data[offset0 + 2];
+
+				var offset1 = 4 * (carver.canvas.width * y1 + x1);
+				var r1 = raw.data[offset1];
+				var g1 = raw.data[offset1 + 1];
+				var b1 = raw.data[offset1 + 2];
+
+				return Math.sqrt(Math.pow(r0 - r1, 2) +
+					Math.pow(g0 - g1, 2) +
+					Math.pow(b0 - b1, 2));
+			};
+
+			var lowest_score = null;
+			var lowest_points = null;
+
+			for(i = 0; i < this.w; ++i) { // for each column
+				var score = 0;	// column score
+				var x = i; // starting from i, look around.
+
+				var path = new Array(); // storing the points to be removed.
+				for(j = 0; j < this.h; j++) {
+					var lots = Math.pow(10, 30);
+					var delta_left = lots, delta_here = lots, delta_right = lots;
+
+					path.push([x, j]);
+					if(j == this.h - 1) {
+						break;
+					}
+
+					// comparison between the current pixel and the one under
+					delta_here = pixel_diff(x, j, x, j+1);
+
+					// if there is a pixel on the left, check how different it is.
+					if(x != 0) {
+						delta_left = pixel_diff(x, j, x-1, j+1);
+					}
+					// if there is a pixel on the right, check how different it is.
+					if(x != w-1) {
+						delta_right = pixel_diff(x, j, x+1, j+1);
+					}
+
+					// check which way we're going next.
+					if(delta_left < delta_here && delta_left < delta_right) {
+						x--; // go down left
+						score += delta_left;
+					} else if(delta_right < delta_here && delta_right < delta_left) {
+						x++; // go down right
+						score += delta_right;
+					} else { // go down
+						score += delta_here;
+					}
+					if(lowest_score != null && score > lowest_score) {
+						break; // no point continuing
+					}
+				}
+				// save the path with the lowest score
+				if(lowest_score == null || score < lowest_score) {
+					lowest_score = score;
+					lowest_points = path;
+				}
+			}
+
+			// remove the squiggly “line” of points with the lowest score, row by row.
+			for(p = 0; p < lowest_points.length; p++) {
+				var x = lowest_points[p][0];
+				var y = lowest_points[p][1];
+
+				// shifts all pixels on the right of the selected path one position to the left.
+				for(i = x; i < this.w-1; i++) {
+					var offset = 4 * (this.canvas.width * y + i);
+					raw.data[offset] = raw.data[offset+4];
+					raw.data[offset+1] = raw.data[offset+5];
+					raw.data[offset+2] = raw.data[offset+6];
+					raw.data[offset+3] = raw.data[offset+7];
+				}
+
+				// add a single white pixel to the right of the row
+				offset = 4 * (this.canvas.width * y + this.w-1);
+				raw.data[offset] = 255;
+				raw.data[offset+1] = 255;
+				raw.data[offset+2] = 255;
+			}
+			this.context.putImageData(raw, 0, 0);
+
+			// now dealing with one less column
+			this.w--;
+
+			// resize the other image block using the browser
+			var naiveImgResize = document.getElementById("naive");
+			naiveImgResize.setAttribute("width", this.w);
+			naiveImgResize.setAttribute("height", this.h);
+		};
+	}
+
+	var c = new Carver("c", "image.jpg");
+
+	function perform_magic(btn, n) {
+		btn.setAttribute("disabled", "disabled");
+		for(step = 0; step < n; ++step) {
+			c.shrink();
+		}
+		btn.removeAttribute("disabled");
+	}
+
+</script>
+</div></body>
 </html>
