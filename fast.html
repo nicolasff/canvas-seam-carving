@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Canvas seam carving</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<style type="text/css">
+			#c {
+				border: none;
+				margin-top: 5px;
+			}
+			h3, img, canvas {
+				float: left;
+			}
+			h3 {
+				margin-left: 1em;
+			}
+			hr {
+				Visibility: hidden;
+				clear: both;
+			}
+		</style>
+	</head>
+	<body><div>
+
+		
+		<img src="image.jpg" id="i" alt="pier"/> <h3>← Original image</h3> <hr />
+		<img src="image.jpg" id="naive" alt="pier, resized by the browser"/> <h3>← &lt;img&gt; tag, resized by the browser</h3> <hr />
+		<canvas id="c"></canvas> <h3>← Context-aware resizing in &lt;canvas&gt; (seam carving)</h3> <hr />
+
+		<button onclick="magic(this, 10);">Remove 10 columns</button>
+
+<script type="text/javascript">
+
+	function Carver(canvasId, url) {
+		// create canvas & drawing context
+		this.canvas = document.getElementById(canvasId);
+		this.context = this.canvas.getContext('2d');
+
+		var carver = this;
+		this.removed = 0;
+
+		// load image
+		var img = new Image();
+		img.onload = function() {
+			w = this.width;
+			h = this.height;
+			carver.canvas.width = w;
+			carver.canvas.height = h;
+			carver.context.drawImage(img, 0, 0, w, h);
+
+			carver.w = w;
+			carver.h = h;
+
+			carver.preload();
+		};
+		img.src = url; // trigger image loading
+
+		this.preload = function() {
+			// get raw data
+			var raw = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+			var copy = this.context.createImageData(this.canvas.width, this.canvas.height);
+			for(k = 0; k < raw.data.length; k++) {
+				copy.data[k] = raw.data[k];
+			}
+
+			// difference between two pixels (color vector distance)
+			var pixel_diff = function(x0,y0, x1,y1) {
+
+				var offset0 = 4 * (carver.canvas.width * y0 + x0);
+				var r0 = copy.data[offset0];
+				var g0 = copy.data[offset0 + 1];
+				var b0 = copy.data[offset0 + 2];
+
+				var offset1 = 4 * (carver.canvas.width * y1 + x1);
+				var r1 = copy.data[offset1];
+				var g1 = copy.data[offset1 + 1];
+				var b1 = copy.data[offset1 + 2];
+
+				return Math.sqrt(Math.pow(r0 - r1, 2) +
+					Math.pow(g0 - g1, 2) +
+					Math.pow(b0 - b1, 2));
+			};
+
+			this.scores = new Array();
+
+			for(i = 0; i < this.w; ++i) { // for each column
+				var score = 0;	// column score
+
+				var path = new Array(); // storing the points to be removed.
+				for(j = 0; j < this.h; j++) {
+					var lots = Math.pow(10, 30);
+					var delta_left = lots, delta_here = lots, delta_right = lots;
+
+					if(j == this.h - 1) {
+						break;
+					}
+
+					// comparison between the current pixel and the one under
+					score += pixel_diff(i, j, i, j+1);
+				}
+				this.scores.push([score, i]);
+			}
+			this.scores.sort();
+		};
+
+		this.shrink = function() {
+			// get raw data
+			var raw = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+			var selected = this.scores.shift(); // current column to remove
+			var x = selected[1];
+
+			// shift the block that is to the right of the deleted column one position left.
+			this.context.putImageData(this.context.getImageData(x+1, 0, this.canvas.width - x - 1, this.h), x, 0);
+
+			// add a column of white pixels to the right.
+			this.context.putImageData(this.context.createImageData(1, this.h), this.w-1, 0);
+
+			// shift all columns that are to the right of the one we've deleted by one pixel to the left.
+			for(i = 0; i < this.scores.length; i++) {
+				if(this.scores[i].column >= x) {
+					this.scores[i].column--;
+				}
+			}
+
+			// now dealing with one less column
+			this.w--;
+
+			// resize the other image block using the browser
+			var naiveImgResize = document.getElementById("naive");
+			naiveImgResize.setAttribute("width", this.w);
+			naiveImgResize.setAttribute("height", this.h);
+		};
+	}
+
+	var c = new Carver("c", "image.jpg");
+
+	function magic(btn, n) {
+		btn.setAttribute("disabled", "disabled");
+		for(step = 0; step < n; ++step) {
+			c.shrink();
+		}
+		btn.removeAttribute("disabled");
+	}
+
+</script>
+</div></body>
+</html>
